@@ -26,6 +26,7 @@ enum Events {
 void setup() {
     Serial.begin(115200);
 
+    // Add transitions between states: source state, target state, event, and optional transition action
     fsm.add_transition(&state_red, &state_green, EVENT_TIMEOUT, &on_red_to_green_transition);
     fsm.add_transition(&state_green, &state_blue, EVENT_TIMEOUT, &on_green_to_blue_transition);
     fsm.add_transition(&state_blue, &state_red, EVENT_TIMEOUT, nullptr);
