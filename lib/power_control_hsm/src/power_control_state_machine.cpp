@@ -13,6 +13,11 @@ bool PowerControlStateMachine::begin() {
     if (!hsm_->initialize(dispatcher_)) {
         return false;
     }
+
+    registerStates();
+    registerSubstates();
+    registerTransitions();
+    registerFailureHandler();
     return true;
 }
 
@@ -63,8 +68,6 @@ void PowerControlStateMachine::registerSubstates() {
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::CHARGED));
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::SERVICE_MODE));
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::SERVICE_EMER));
-        hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::WAIT_IPC));
-        hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::SERVICE_FAIL));
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::CHARGING));
         hsm_->registerSubstateEntryPoint(toStateID(State::SERVICE_LAYER), toStateID(State::SERVICE_MODE));
 
@@ -98,9 +101,6 @@ void PowerControlStateMachine::registerTransitions() {
         hsm_->registerTransition(toStateID(State::CHARGING), toStateID(State::CHARGED), toEventID(Event::BATTERY_HIGH));
         hsm_->registerTransition(toStateID(State::CHARGED), toStateID(State::SLEEP), toEventID(Event::CHARGED_IDLE_TIMEOUT));
         hsm_->registerTransition(toStateID(State::SERVICE_MODE), toStateID(State::SERVICE_EMER), toEventID(Event::EMER_LOW));
-        hsm_->registerTransition(toStateID(State::SERVICE_MODE), toStateID(State::WAIT_IPC), toEventID(Event::WAIT_IPC_TIMEOUT));
-        hsm_->registerTransition(toStateID(State::WAIT_IPC), toStateID(State::SERVICE_FAIL), toEventID(Event::IPC_FAIL));
-        hsm_->registerTransition(toStateID(State::SERVICE_FAIL), toStateID(State::SERVICE_MODE), toEventID(Event::FAIL_RETRY));
         hsm_->registerTransition(toStateID(State::SERVICE_EMER), toStateID(State::SERVICE_MODE), toEventID(Event::EMER_HIGH));
 
         // Charging nested transitions
@@ -118,7 +118,7 @@ void PowerControlStateMachine::registerTransitions() {
 }
 
 void PowerControlStateMachine::registerFailureHandler() {
-    hsm_->setTransitionFailedCallback([this](const std::list<hsmcpp::StateID_t>& activeStates, const hsmcpp::EventID_t event, const hsmcpp::VariantVector_t& eventArgs) {
+    hsm_->registerFailedTransitionCallback([this](const std::list<hsmcpp::StateID_t>& activeStates, const hsmcpp::EventID_t event, const hsmcpp::VariantVector_t& eventArgs) {
         if (transitionFailedCallback_) {
             std::string message = "Transition failed. Active states: ";
             for (const auto& state : activeStates) {

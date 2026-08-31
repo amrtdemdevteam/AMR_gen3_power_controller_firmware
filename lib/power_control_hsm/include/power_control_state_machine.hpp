@@ -10,10 +10,10 @@
 class PowerControlStateMachine {
     public:
         // Callback type aliases matching hsmcpp API
-        using StateChangedCallback_t = hsmcpp::HsmStateChangedCallback_t;
-        using StateEnterCallback_t   = hsmcpp::HsmStateEnterCallback_t;
-        using StateExitCallback_t    = hsmcpp::HsmStateExitCallback_t;
-        using TransitionFailedCallback_t = hsmcpp::HsmTransitionFailedCallback_t;
+        using StateChangedCallback_t = hsmcpp::HsmStateChangedCallback_t; // callback function signature: void(const hsmcpp::VariantVector_t&)
+        using StateEnterCallback_t   = hsmcpp::HsmStateEnterCallback_t; // callback function signature: bool(const hsmcpp::VariantVector_t&)
+        using StateExitCallback_t    = hsmcpp::HsmStateExitCallback_t; // callback function signature: bool(void)
+        using TransitionFailedCallback_t = hsmcpp::HsmTransitionFailedCallback_t; // callback function signature: void(const std::list<hsmcpp::StateID_t>&, const hsmcpp::EventID_t, const hsmcpp::VariantVector_t&)
 
         // Groups entry/exit/changed callbacks for a single state
         struct StateCallbacks {
@@ -30,8 +30,6 @@ class PowerControlStateMachine {
             CHARGED,
             SERVICE_MODE,
             SERVICE_EMER,
-            WAIT_IPC,
-            SERVICE_FAIL,
             CHARGING,
             GO_TO_CHARGER,
             WAIT_CHARGER,
@@ -61,9 +59,7 @@ class PowerControlStateMachine {
             EMER_HIGH,
             MODE_MANUAL,
             MODE_AUTO,
-            WAIT_IPC_TIMEOUT,
-            CHARGED_IDLE_TIMEOUT,
-            FAIL_RETRY
+            CHARGED_IDLE_TIMEOUT
         };
 
         /**
@@ -88,10 +84,13 @@ class PowerControlStateMachine {
          *        Must be called before begin().
          * @param state      Target state.
          * @param onChanged  Called when HSM has already changed its current state (may be nullptr).
+         *                   callback function signature: void(const hsmcpp::VariantVector_t&)
          * @param onEnter    Called right before changing to this state.
          *                   Transition is canceled if callback returns false (may be nullptr).
+         *                   callback function signature: bool(const hsmcpp::VariantVector_t&)
          * @param onExit     Called for this state before starting to transition away.
          *                   Transition is canceled if callback returns false (may be nullptr).
+         *                   callback function signature: bool(void)
          */
         void setStateCallbacks(State                  state,
                                StateChangedCallback_t onChanged,
@@ -104,6 +103,33 @@ class PowerControlStateMachine {
          * @param callback Callback function to be called on transition failure.
          */
         void setTransitionFailedCallback(std::function<void(std::string)> callback);
+
+        /**
+         * @brief Converts a State enum value to its string representation.
+         * @param state The State enum value to convert.
+         * @return A string representation of the State enum value.
+         */
+        static std::string ToString(const State state) {
+            switch (state) {
+                case State::SHUTDOWN: return "SHUTDOWN";
+                case State::SERVICE_LAYER: return "SERVICE_LAYER";
+                case State::APPLICATION_LAYER: return "APPLICATION_LAYER";
+                case State::SLEEP: return "SLEEP";
+                case State::CHARGED: return "CHARGED";
+                case State::SERVICE_MODE: return "SERVICE_MODE";
+                case State::SERVICE_EMER: return "SERVICE_EMER";
+                case State::CHARGING: return "CHARGING";
+                case State::GO_TO_CHARGER: return "GO_TO_CHARGER";
+                case State::WAIT_CHARGER: return "WAIT_CHARGER";
+                case State::CHARGING_IN_PROGRESS: return "CHARGING_IN_PROGRESS";
+                case State::OPERATION: return "OPERATION";
+                case State::APP_EMER: return "APP_EMER";
+                case State::MANUAL: return "MANUAL";
+                case State::STANDBY: return "STANDBY";
+                case State::AUTO: return "AUTO";
+                default: return "UNKNOWN_STATE";
+            }
+        }
 
     private:
 
@@ -129,6 +155,8 @@ class PowerControlStateMachine {
         static hsmcpp::EventID_t toEventID(const Event event) {
             return static_cast<hsmcpp::EventID_t>(event);
         }
+
+
 
 };
 #endif // POWER_CONTROL_STATE_MACHINE_HPP
