@@ -4,20 +4,26 @@
 bool PowerControlStateMachine::begin() {
 
     hsm_ = std::make_shared<hsmcpp::HierarchicalStateMachine>(toStateID(State::SHUTDOWN));
+
+    
+    registerStates();
+    registerStateActions();
+    registerSubstates();
+    registerTransitions();
+    registerTimer();
+    registerFailureHandler();
     // create the dispatcher
-        dispatcher_ = hsmcpp::HsmEventDispatcherArduino::create();
+    dispatcher_ = hsmcpp::HsmEventDispatcherArduino::create();
         if (!dispatcher_) {
             return false;
         }
-    // initialize the HSM with the dispatcher
+
+
+    // initialize the HSM with the dispatcher after graph/actions/timers registration
     if (!hsm_->initialize(dispatcher_)) {
         return false;
     }
 
-    registerStates();
-    registerSubstates();
-    registerTransitions();
-    registerFailureHandler();
     return true;
 }
 
@@ -62,14 +68,23 @@ void PowerControlStateMachine::registerStates() {
     }
 }
 
+void PowerControlStateMachine::registerStateActions() {
+    // Implement state action registration logic here
+
+    // When entering the INIT state, start the INIT_TIMER which will trigger the INIT_DONE event after 5000 ms. single shot timer.
+    hsm_->registerStateAction(toStateID(State::INIT), hsmcpp::StateActionTrigger::ON_STATE_ENTRY, 
+                                        hsmcpp::StateAction::START_TIMER, toTimerID(Timers::INIT_TIMER), 5000, false);
+}
+
 void PowerControlStateMachine::registerSubstates() {
         // Root composites
+    hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::INIT));
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::SLEEP));
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::CHARGED));
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::SERVICE_MODE));
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::SERVICE_EMER));
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::CHARGING));
-        hsm_->registerSubstateEntryPoint(toStateID(State::SERVICE_LAYER), toStateID(State::SERVICE_MODE));
+    hsm_->registerSubstateEntryPoint(toStateID(State::SERVICE_LAYER), toStateID(State::INIT));
 
         hsm_->registerSubstate(toStateID(State::CHARGING), toStateID(State::GO_TO_CHARGER));
         hsm_->registerSubstate(toStateID(State::CHARGING), toStateID(State::WAIT_CHARGER));
@@ -95,6 +110,7 @@ void PowerControlStateMachine::registerTransitions() {
         hsm_->registerTransition(toStateID(State::APPLICATION_LAYER), toStateID(State::SERVICE_LAYER), toEventID(Event::IPC_FAIL));
 
         // Service transitions
+        hsm_->registerTransition(toStateID(State::INIT), toStateID(State::SERVICE_MODE), toEventID(Event::INIT_DONE));
         hsm_->registerTransition(toStateID(State::SLEEP), toStateID(State::SERVICE_MODE), toEventID(Event::FMS_WAKE_UP));
         hsm_->registerTransition(toStateID(State::SLEEP), toStateID(State::CHARGING), toEventID(Event::BATTERY_LOW));
         hsm_->registerTransition(toStateID(State::CHARGED), toStateID(State::SERVICE_MODE), toEventID(Event::FMS_WAKE_UP));
@@ -128,5 +144,12 @@ void PowerControlStateMachine::registerFailureHandler() {
             transitionFailedCallback_(message);
         }
     });
+}
+
+void PowerControlStateMachine::registerTimer() {
+    // Implement timer registration logic here
+
+    // Register INIT_TIMER to trigger INIT_DONE event after time elapses
+    hsm_->registerTimer(toTimerID(Timers::INIT_TIMER), toEventID(Event::INIT_DONE));
 }
 // ---------- Private methods end ----------

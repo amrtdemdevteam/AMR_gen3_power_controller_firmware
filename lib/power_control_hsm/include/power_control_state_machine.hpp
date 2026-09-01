@@ -24,6 +24,7 @@ class PowerControlStateMachine {
 
         enum class State : hsmcpp::StateID_t {
             SHUTDOWN = 1,
+            INIT,
             SERVICE_LAYER,
             APPLICATION_LAYER,
             SLEEP,
@@ -45,6 +46,7 @@ class PowerControlStateMachine {
         enum class Event : hsmcpp::EventID_t {
             POWER_ON = 1,
             POWER_OFF,
+            INIT_DONE,
             FMS_WAKE_UP,
             FMS_NO_TASK,
             FMS_TASK_ASSIGNED,
@@ -60,6 +62,11 @@ class PowerControlStateMachine {
             MODE_MANUAL,
             MODE_AUTO,
             CHARGED_IDLE_TIMEOUT
+        };
+
+        enum  Timers {
+            INIT_TIMER = 100, // just timer ID
+            WAIT_IPC_TIMER = 101
         };
 
         /**
@@ -112,6 +119,7 @@ class PowerControlStateMachine {
         static std::string ToString(const State state) {
             switch (state) {
                 case State::SHUTDOWN: return "SHUTDOWN";
+                case State::INIT: return "INIT";
                 case State::SERVICE_LAYER: return "SERVICE_LAYER";
                 case State::APPLICATION_LAYER: return "APPLICATION_LAYER";
                 case State::SLEEP: return "SLEEP";
@@ -143,17 +151,24 @@ class PowerControlStateMachine {
         std::function<void(std::string)> transitionFailedCallback_;
 
         void registerStates();
+        void registerStateActions();
         void registerSubstates();
         void registerTransitions();
         void registerFailureHandler();
+        void registerTimer();
         void transitionFailedHandler(const std::list<hsmcpp::StateID_t>& activeStates, const hsmcpp::EventID_t event, const hsmcpp::VariantVector_t& eventArgs);
-
+        
+        
         static hsmcpp::StateID_t toStateID(const State state) {
             return static_cast<hsmcpp::StateID_t>(state);
         }
 
         static hsmcpp::EventID_t toEventID(const Event event) {
             return static_cast<hsmcpp::EventID_t>(event);
+        }
+
+        static hsmcpp::TimerID_t toTimerID(const Timers timer) {
+            return static_cast<hsmcpp::TimerID_t>(timer);
         }
 
 
