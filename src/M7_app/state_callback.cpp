@@ -5,6 +5,8 @@
 
 constexpr size_t LED_ROLE_COUNT = static_cast<size_t>(LedRole::COUNT);
 std::array<LedController*, LED_ROLE_COUNT> g_led_controllers = {nullptr};
+std::function<void()> g_on_init_enter_timer_cb = nullptr;
+std::function<void()> g_on_init_exit_timer_cb = nullptr;
 
 bool isValidLedRole(LedRole led_role) {
     return static_cast<size_t>(led_role) < LED_ROLE_COUNT;
@@ -35,6 +37,12 @@ bool registerLedController(LedRole led_role, LedController* led_controller) {
 
 void clearLedControllers() {
     g_led_controllers.fill(nullptr);
+}
+
+void setInitStateTimerCallbacks(std::function<void()> on_init_enter,
+                                std::function<void()> on_init_exit) {
+    g_on_init_enter_timer_cb = on_init_enter;
+    g_on_init_exit_timer_cb = on_init_exit;
 }
 
 
@@ -86,6 +94,10 @@ bool onEnterInit(const hsmcpp::VariantVector_t& params) {
     Serial.println("Entering INIT");
     printVariantParams(params);
 
+    if (g_on_init_enter_timer_cb) {
+        g_on_init_enter_timer_cb();
+    }
+
     Serial.println("Powering on");
     Serial.println("Initializing subsystems");
 
@@ -95,6 +107,10 @@ bool onEnterInit(const hsmcpp::VariantVector_t& params) {
 
 bool onExitInit() {
     Serial.println("Exiting INIT");
+
+    if (g_on_init_exit_timer_cb) {
+        g_on_init_exit_timer_cb();
+    }
 
     Serial.println("Subsystem initialization completed");
     return true;
