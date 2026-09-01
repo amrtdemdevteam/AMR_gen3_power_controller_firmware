@@ -62,6 +62,7 @@ bool on_exit_charged() {
 bool on_enter_service_mode(const hsmcpp::VariantVector_t& params) {
     Serial.println("Entering SERVICE_MODE");
     printVariantParams(params);
+
     return true;
 }
 
