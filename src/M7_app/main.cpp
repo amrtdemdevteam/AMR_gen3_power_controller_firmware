@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <memory>
+#include <arduino-timer.h>
 #include "power_control_state_machine.hpp"
 #include "ipc_status_checker.hpp"
 #include "state_callback.hpp"
@@ -7,11 +8,18 @@
 #include "led_controller.hpp"
 
 PowerControlStateMachine powerControlHsm;
+auto app_timer = timer_create_default();
+
+constexpr unsigned long INIT_DONE_DELAY_MS = 5000;
 
 
 void powerControlHsmRegisterCallbacks();
 
 void printHelp();
+
+bool onInitDoneTimer(void*);
+void scheduleInitDoneTimer();
+void cancelInitDoneTimer();
 
 std::unique_ptr<IPCStatusChecker> ipcStatusChecker;
 
@@ -31,6 +39,9 @@ LedController::Config power_led_config = {
 };
 LedController powerLedController(power_led_config);
 
+decltype(app_timer)::Task init_done_timer_task;
+bool is_init_done_timer_active = false;
+
 void setup() {
 
     powerLedController.begin();
@@ -41,6 +52,8 @@ void setup() {
     Serial.begin(115200);
 
     powerControlHsmRegisterCallbacks();
+
+    setInitStateTimerCallbacks(scheduleInitDoneTimer, cancelInitDoneTimer);
 
     powerControlHsm.begin();
 
@@ -53,6 +66,8 @@ void setup() {
 }
 
 void loop() {
+
+    app_timer.tick();
 
     powerControlHsm.run();
     bool ipcIsOk = false;
@@ -115,6 +130,25 @@ void loop() {
             case 'H': printHelp(); break;
             default: break;
         }
+    }
+}
+
+bool onInitDoneTimer(void*) {
+    is_init_done_timer_active = false;
+    powerControlHsm.postEvent(PowerControlStateMachine::Event::INIT_DONE);
+    return false;
+}
+
+void scheduleInitDoneTimer() {
+    cancelInitDoneTimer();
+    init_done_timer_task = app_timer.in(INIT_DONE_DELAY_MS, onInitDoneTimer);
+    is_init_done_timer_active = true;
+}
+
+void cancelInitDoneTimer() {
+    if (is_init_done_timer_active) {
+        app_timer.cancel(init_done_timer_task);
+        is_init_done_timer_active = false;
     }
 }
 
