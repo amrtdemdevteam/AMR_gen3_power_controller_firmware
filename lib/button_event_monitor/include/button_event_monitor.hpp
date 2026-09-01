@@ -13,34 +13,35 @@ public:
     };
 
     struct Config {
-        uint8_t pin = 0;
-        bool activeLow = false;
-        unsigned long debounceMs = 30;
-        unsigned long shortHoldMs = 3000;
-        unsigned long longHoldMs = 5000;
+        uint8_t pin = 0; // Pin number for the button
+        bool active_low = false; // true if the button is active low, false if active high
+        unsigned long short_hold_ms = 3000;
+        unsigned long long_hold_ms = 5000;
     };
 
     explicit ButtonEventMonitor(const Config& config);
 
     bool begin();
-    void setDurations(unsigned long shortHoldMs, unsigned long longHoldMs);
+    void setDurations(unsigned long short_hold_ms, unsigned long long_hold_ms);
     bool isPressed() const;
     bool pollEvent(Event& event);
 
 private:
     Config config_;
 
-    bool rawPressed_ = false;
-    bool stablePressed_ = false;
+    bool raw_pressed_ = false;
+    bool stable_pressed_ = false;
     bool initialized_ = false;
 
-    unsigned long lastRawChangeMs_ = 0;
-    unsigned long pressStartMs_ = 0;
+    unsigned long last_raw_change_ms_ = 0;
+    unsigned long press_start_ms_ = 0;
 
-    bool shortHoldReported_ = false;
-    bool longHoldReported_ = false;
+    bool short_hold_reported_ = false;
+    bool long_hold_reported_ = false;
 
-    Event pendingEvent_ = Event::NONE;
+    Event pending_event_ = Event::NONE;
+
+    static constexpr unsigned long DEBOUNCE_MS = 30;
 
     bool readPressed() const;
     void queueEvent(Event event);
