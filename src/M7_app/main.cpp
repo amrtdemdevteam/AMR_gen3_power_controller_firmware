@@ -1,32 +1,81 @@
 #include <Arduino.h>
 #include <memory>
 #include "power_control_state_machine.hpp"
+#include "ipc_status_checker.hpp"
 #include "state_callback.hpp"
+#include "button_event_monitor.hpp"
 
 PowerControlStateMachine powerControlHsm;
+
 
 void powerControlHsmRegisterCallbacks();
 
 void printHelp();
 
+std::unique_ptr<IPCStatusChecker> ipcStatusChecker;
 
-
-
+ButtonEventMonitor::Config power_button_config = {
+    .pin = 12,
+    .activeLow = false,
+    .debounceMs = 30,
+    .shortHoldMs = 3000,
+    .longHoldMs = 5000
+};
+ButtonEventMonitor powerButtonMonitor(power_button_config);
 
 void setup() {
-    pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(13, OUTPUT);
+    digitalWrite(13, LOW);
     Serial.begin(115200);
 
     powerControlHsmRegisterCallbacks();
 
     powerControlHsm.begin();
 
+    ipcStatusChecker.reset(new IPCStatusChecker());
+
+    if (!powerButtonMonitor.begin()) {
+        Serial.println("Failed to initialize power button monitor");
+    }
+
 }
 
 void loop() {
 
     powerControlHsm.run();
+    bool ipcIsOk = false;
+    if (ipcStatusChecker->pollStatusChange(ipcIsOk)) {
+        powerControlHsm.postEvent(
+            ipcIsOk ? PowerControlStateMachine::Event::IPC_OK
+                    : PowerControlStateMachine::Event::IPC_FAIL);
+    }
 
+    ButtonEventMonitor::Event powerButtonEvent;
+    switch(powerButtonMonitor.pollEvent(powerButtonEvent)) {
+        case true:
+            switch (powerButtonEvent) {
+                case ButtonEventMonitor::Event::PRESSED:
+                    Serial.println("Power button pressed");
+                    break;
+                case ButtonEventMonitor::Event::RELEASED:
+                    Serial.println("Power button released");
+                    break;
+                case ButtonEventMonitor::Event::SHORT_HOLD:
+                    Serial.println("Power button short hold");
+                    //powerControlHsm.postEvent(PowerControlStateMachine::Event::POWER_OFF);
+                    break;
+                case ButtonEventMonitor::Event::LONG_HOLD:
+                    Serial.println("Power button long hold");
+                    //powerControlHsm.postEvent(PowerControlStateMachine::Event::POWER_OFF);
+                    break;
+                default:
+                    break;
+            }
+            break;
+        case false:
+            // No event
+            break;
+    }
 
     while (Serial.available() > 0) {
         const char cmd = static_cast<char>(Serial.read());
@@ -35,8 +84,8 @@ void loop() {
             case 'p': powerControlHsm.postEvent(PowerControlStateMachine::Event::POWER_ON); break;
             case 'o': powerControlHsm.postEvent(PowerControlStateMachine::Event::POWER_OFF); break;
             case 'w': powerControlHsm.postEvent(PowerControlStateMachine::Event::FMS_WAKE_UP); break;
-            case 'i': powerControlHsm.postEvent(PowerControlStateMachine::Event::IPC_OK); break;
-            case 'x': powerControlHsm.postEvent(PowerControlStateMachine::Event::IPC_FAIL); break;
+            case 'i': ipcStatusChecker->setIpcStatus(true); break;
+            case 'x': ipcStatusChecker->setIpcStatus(false); break;
             case 'l': powerControlHsm.postEvent(PowerControlStateMachine::Event::BATTERY_LOW); break;
             case 'h': powerControlHsm.postEvent(PowerControlStateMachine::Event::BATTERY_HIGH); break;
             case 'a': powerControlHsm.postEvent(PowerControlStateMachine::Event::ARRIVED_AT_CHARGER); break;
