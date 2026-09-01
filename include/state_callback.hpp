@@ -1,56 +1,85 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <hsmcpp.hpp>
 
-void on_state_changed(const hsmcpp::VariantVector_t& params);
+#include "led_controller.hpp"
 
-bool on_enter_shutdown(const hsmcpp::VariantVector_t& params);
-bool on_exit_shutdown();
 
-bool on_enter_service_layer(const hsmcpp::VariantVector_t& params);
-bool on_exit_service_layer();
+enum class LedRole : uint8_t {
+	POWER = 0,
+	MASTER,
+	RUN,
+	COUNT // Keep this as the last element to represent the number of LED roles
+};
 
-bool on_enter_sleep(const hsmcpp::VariantVector_t& params);
-bool on_exit_sleep();
+/**
+ * @brief Registers an LED controller for a specific LED role.
+ *
+ * @param led_role The role of the LED to register.
+ * @param led_controller Pointer to the LED controller instance.
+ * @return true if the registration was successful, false otherwise.
+ **/
+bool registerLedController(LedRole led_role, LedController* led_controller);
 
-bool on_enter_charged(const hsmcpp::VariantVector_t& params);
-bool on_exit_charged();
+bool getLedController(LedRole led_role, LedController** led_controller);
 
-bool on_enter_service_mode(const hsmcpp::VariantVector_t& params);
-bool on_exit_service_mode();
+bool isValidLedRole(LedRole led_role);
 
-bool on_enter_service_emer(const hsmcpp::VariantVector_t& params);
-bool on_exit_service_emer();
+void clearLedControllers();
 
-bool on_enter_charging(const hsmcpp::VariantVector_t& params);
-bool on_exit_charging();
+void onStateChanged(const hsmcpp::VariantVector_t& params);
 
-bool on_enter_go_to_charger(const hsmcpp::VariantVector_t& params);
-bool on_exit_go_to_charger();
+bool onEnterShutdown(const hsmcpp::VariantVector_t& params);
+bool onExitShutdown();
 
-bool on_enter_wait_charger(const hsmcpp::VariantVector_t& params);
-bool on_exit_wait_charger();
+bool onEnterInit(const hsmcpp::VariantVector_t& params);
+bool onExitInit();
 
-bool on_enter_charging_in_progress(const hsmcpp::VariantVector_t& params);
-bool on_exit_charging_in_progress();
+bool onEnterServiceLayer(const hsmcpp::VariantVector_t& params);
+bool onExitServiceLayer();
 
-bool on_enter_application_layer(const hsmcpp::VariantVector_t& params);
-bool on_exit_application_layer();
+bool onEnterSleep(const hsmcpp::VariantVector_t& params);
+bool onExitSleep();
 
-bool on_enter_operation(const hsmcpp::VariantVector_t& params);
-bool on_exit_operation();
+bool onEnterCharged(const hsmcpp::VariantVector_t& params);
+bool onExitCharged();
 
-bool on_enter_app_emer(const hsmcpp::VariantVector_t& params);
-bool on_exit_app_emer();
+bool onEnterServiceMode(const hsmcpp::VariantVector_t& params);
+bool onExitServiceMode();
 
-bool on_enter_manual(const hsmcpp::VariantVector_t& params);
-bool on_exit_manual();
+bool onEnterServiceEmer(const hsmcpp::VariantVector_t& params);
+bool onExitServiceEmer();
 
-bool on_enter_standby(const hsmcpp::VariantVector_t& params);
-bool on_exit_standby();
+bool onEnterCharging(const hsmcpp::VariantVector_t& params);
+bool onExitCharging();
 
-bool on_enter_auto(const hsmcpp::VariantVector_t& params);
-bool on_exit_auto();
+bool onEnterGoToCharger(const hsmcpp::VariantVector_t& params);
+bool onExitGoToCharger();
 
-void on_transition_failed(std::string message);
+bool onEnterWaitCharger(const hsmcpp::VariantVector_t& params);
+bool onExitWaitCharger();
+
+bool onEnterChargingInProgress(const hsmcpp::VariantVector_t& params);
+bool onExitChargingInProgress();
+
+bool onEnterApplicationLayer(const hsmcpp::VariantVector_t& params);
+bool onExitApplicationLayer();
+
+bool onEnterOperation(const hsmcpp::VariantVector_t& params);
+bool onExitOperation();
+
+bool onEnterAppEmer(const hsmcpp::VariantVector_t& params);
+bool onExitAppEmer();
+
+bool onEnterManual(const hsmcpp::VariantVector_t& params);
+bool onExitManual();
+
+bool onEnterStandby(const hsmcpp::VariantVector_t& params);
+bool onExitStandby();
+
+bool onEnterAuto(const hsmcpp::VariantVector_t& params);
+bool onExitAuto();
+
+void onTransitionFailed(std::string message);
