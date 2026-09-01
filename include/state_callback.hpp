@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <functional>
 #include <hsmcpp.hpp>
 
 #include "led_controller.hpp"
@@ -28,6 +29,9 @@ bool getLedController(LedRole led_role, LedController** led_controller);
 bool isValidLedRole(LedRole led_role);
 
 void clearLedControllers();
+
+void setInitStateTimerCallbacks(std::function<void()> on_init_enter,
+								std::function<void()> on_init_exit);
 
 void onStateChanged(const hsmcpp::VariantVector_t& params);
 
