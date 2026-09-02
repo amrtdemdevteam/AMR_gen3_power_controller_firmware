@@ -57,8 +57,8 @@ class PowerControlStateMachine {
             CHARGER_PLUGGED,
             CHARGER_REMOVED,
             ARRIVED_AT_CHARGER,
-            EMER_LOW,
-            EMER_HIGH,
+            EMER_ON,
+            EMER_OFF,
             MODE_MANUAL,
             MODE_AUTO,
             CHARGED_IDLE_TIMEOUT
