@@ -1,5 +1,7 @@
 #include "button_event_monitor.hpp"
 
+ButtonEventMonitor* ButtonEventMonitor::instance_ = nullptr;
+
 ButtonEventMonitor::ButtonEventMonitor(const Config& config)
 	: config_(config), input_pin_(config.pin, config.active_low) {
 }
@@ -22,6 +24,10 @@ bool ButtonEventMonitor::begin() {
 	press_start_ms_ = raw_pressed_ ? last_raw_change_ms_ : 0;
 	short_hold_reported_ = false;
 	long_hold_reported_ = false;
+	if ((instance_ != nullptr) && (instance_ != this)) {
+		return false;
+	}
+	instance_ = this;
 	input_pin_.setChangeCallback(&ButtonEventMonitor::onInputChanged);
 
 	return true;
@@ -76,16 +82,12 @@ void ButtonEventMonitor::update() {
 }
 
 void ButtonEventMonitor::onInputChanged(bool current_state, bool previous_state) {
-	(void)previous_state;
-
-	// Assuming a single instance or using a singleton pattern for the monitor
-	// Replace 'instance' with the actual instance of ButtonEventMonitor
-	extern ButtonEventMonitor* instance;
-	if (instance == nullptr) {
+	(void)previous_state;//
+	if (instance_ == nullptr) {
 		return;
 	}
 
-	instance->handleInputChanged(current_state);
+	instance_->handleInputChanged(current_state);
 }
 
 void ButtonEventMonitor::handleInputChanged(bool current_state) {
