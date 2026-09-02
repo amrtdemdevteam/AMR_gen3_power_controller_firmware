@@ -10,6 +10,7 @@
 #include "state_event_timer_manager.hpp"
 #include "electrical_measurement.hpp"
 #include "digital_output_pin.hpp"
+#include "digital_input_pin.hpp"
 
 //Output pins
 #define PIN_BATTERY_RELAY         9
@@ -19,16 +20,10 @@
 #define PIN_AUX_DEV_RELAY         13
 #define PIN_UNLOCK_MOTOR          49 // ใช่ brake release มั๊ย
 #define PIN_POWER_ON              51 // Power on signal for this controller
-
-
-#define PIN_SERIAL_DR             33 // 
+#define PIN_SERIAL_DR             33 // เอาไว้ทำอะไร
 #define PIN_LED_BUTTON1           35 //What is this button?
 #define PIN_LED_BUTTON2           37 //What is this button?
-
-
 #define PIN_EMERGENCY_OUT         47
-
-
 
 //Input pins
 #define PIN_SW_OFF                41
@@ -69,6 +64,10 @@ void powerControlHsmRegisterCallbacks();
 void printHelp();
 
 void initDigitalOutputPins();
+void initDigitalInputPins();
+
+void updateDigitalInputPins();
+
 
 //Define output control pins
 DigitalOutputPin batteryRelay(PIN_BATTERY_RELAY, false, false);
@@ -76,8 +75,19 @@ DigitalOutputPin chargerRelay(PIN_CHARGER_RELAY, false, false);
 DigitalOutputPin motDrvRelay(PIN_MOT_DRV_RELAY, false, false);
 DigitalOutputPin controlRelay(PIN_CONTROL_RELAY, false, false);
 DigitalOutputPin auxDevRelay(PIN_AUX_DEV_RELAY, false, false);
-DigitalOutputPin unlockMotor(PIN_UNLOCK_MOTOR, false, false);
+DigitalOutputPin unlockMotorOut(PIN_UNLOCK_MOTOR, false, false);
 DigitalOutputPin powerOn(PIN_POWER_ON, false, false);
+DigitalOutputPin emergencyOut(PIN_EMERGENCY_OUT, true, false);
+
+//Define input pins
+DigitalInputPin swOff(PIN_SW_OFF, true); //active low
+void swOffChanged(bool current_state, bool previous_state);
+
+DigitalInputPin swReqUnlock(PIN_SW_REQ_UNLOCK, true);//active low
+void swReqUnlockChanged(bool current_state, bool previous_state);
+
+DigitalInputPin emergencyIn(PIN_EMERGENCY_IN, true);//active low
+void emergencyInChanged(bool current_state, bool previous_state);
 
 std::unique_ptr<IPCStatusChecker> ipcStatusChecker;
 
@@ -88,7 +98,8 @@ ButtonEventMonitor::Config power_button_config = {
     .short_hold_ms = 3000,
     .long_hold_ms = 5000
 };
-ButtonEventMonitor powerButtonMonitor(power_button_config);
+ButtonEventMonitor powerButton(power_button_config);
+void onPowerButtonEvent(ButtonEventMonitor::Event event);
 
 // Just for demo
 LedController::Config power_led_config = {
@@ -101,10 +112,10 @@ LedController powerLedController(power_led_config);
 
 
 
-
 void setup() {
     Serial.begin(115200);
     initDigitalOutputPins();
+    initDigitalInputPins();
 
     powerLedController.begin();
 
@@ -118,8 +129,9 @@ void setup() {
     registerDigitalOutputPin(DigitalOutputRole::MOT_DRV_RELAY, &motDrvRelay);
     registerDigitalOutputPin(DigitalOutputRole::CONTROL_RELAY, &controlRelay);
     registerDigitalOutputPin(DigitalOutputRole::AUX_DEV_RELAY, &auxDevRelay);
-    registerDigitalOutputPin(DigitalOutputRole::UNLOCK_MOTOR, &unlockMotor);
+    registerDigitalOutputPin(DigitalOutputRole::UNLOCK_MOTOR, &unlockMotorOut);
     registerDigitalOutputPin(DigitalOutputRole::POWER_ON, &powerOn);
+    registerDigitalOutputPin(DigitalOutputRole::EMERGENCY_OUT, &emergencyOut);
     powerControlHsmRegisterCallbacks();
     setStateEventTimerManager(&state_event_timer_manager);
     registerStateEventTimer(StateEventTimerId::INIT_DONE, &init_done_timer);
@@ -128,9 +140,9 @@ void setup() {
 
     ipcStatusChecker.reset(new IPCStatusChecker());
 
-    if (!powerButtonMonitor.begin()) {
-        Serial.println("Failed to initialize power button monitor");
-    }
+    powerButton.setEventCallback(onPowerButtonEvent);
+
+
 
 }
 
@@ -140,8 +152,24 @@ void initDigitalOutputPins() {
     motDrvRelay.begin();
     controlRelay.begin();
     auxDevRelay.begin();
-    unlockMotor.begin();
+    unlockMotorOut.begin();
     powerOn.begin();
+}
+
+void initDigitalInputPins() {
+    powerButton.begin();
+    emergencyIn.begin();
+    swOff.begin();
+    swReqUnlock.begin();
+}
+
+
+
+void updateDigitalInputPins() {
+    powerButton.update();
+    emergencyIn.update();
+    swOff.update();
+    swReqUnlock.update();
 }
 
 void loop() {
@@ -156,35 +184,10 @@ void loop() {
                     : PowerControlStateMachine::Event::IPC_FAIL);
     }
 
-    ButtonEventMonitor::Event powerButtonEvent;
-    switch(powerButtonMonitor.pollEvent(powerButtonEvent)) {
-        case true:
-            switch (powerButtonEvent) {
-                case ButtonEventMonitor::Event::PRESSED:
-                    Serial.println("Power button pressed");
-                    break;
-                case ButtonEventMonitor::Event::RELEASED:
-                    Serial.println("Power button released");
-                    break;
-                case ButtonEventMonitor::Event::SHORT_HOLD:
-                    Serial.println("Power button short hold");
-                    powerControlHsm.postEvent(PowerControlStateMachine::Event::POWER_ON);
-                    break;
-                case ButtonEventMonitor::Event::LONG_HOLD:
-                    Serial.println("Power button long hold");
-                    powerControlHsm.postEvent(PowerControlStateMachine::Event::POWER_OFF);
-                    break;
-                default:
-                    break;
-            }
-            break;
-        case false:
-            // No event
-            break;
-    }
+    updateDigitalInputPins();
 
     powerLedController.run();
-
+    
     while (Serial.available() > 0) {
         const char cmd = static_cast<char>(Serial.read());
 
@@ -200,8 +203,8 @@ void loop() {
             case 'a': powerControlHsm.postEvent(PowerControlStateMachine::Event::ARRIVED_AT_CHARGER); break;
             case 'c': powerControlHsm.postEvent(PowerControlStateMachine::Event::CHARGER_PLUGGED); break;
             case 'r': powerControlHsm.postEvent(PowerControlStateMachine::Event::CHARGER_REMOVED); break;
-            case 'e': powerControlHsm.postEvent(PowerControlStateMachine::Event::EMER_LOW); break;
-            case 'E': powerControlHsm.postEvent(PowerControlStateMachine::Event::EMER_HIGH); break;
+            case 'e': powerControlHsm.postEvent(PowerControlStateMachine::Event::EMER_OFF); break;
+            case 'E': powerControlHsm.postEvent(PowerControlStateMachine::Event::EMER_ON); break;
             case 'm': powerControlHsm.postEvent(PowerControlStateMachine::Event::MODE_MANUAL); break;
             case 'A': powerControlHsm.postEvent(PowerControlStateMachine::Event::MODE_AUTO); break;
             case 'n': powerControlHsm.postEvent(PowerControlStateMachine::Event::FMS_NO_TASK); break;
@@ -256,4 +259,58 @@ void printHelp() {
     Serial.println("  H: help");
 }
 
+void onPowerButtonEvent(ButtonEventMonitor::Event event) {
 
+    switch (event) {
+        case ButtonEventMonitor::Event::PRESSED:
+            Serial.println("Power button pressed");
+            break;
+        case ButtonEventMonitor::Event::RELEASED:
+            Serial.println("Power button released");
+            break;
+        case ButtonEventMonitor::Event::SHORT_HOLD:
+            Serial.println("Power button short hold");
+            powerControlHsm.postEvent(PowerControlStateMachine::Event::POWER_ON);
+            break;
+        case ButtonEventMonitor::Event::LONG_HOLD:
+            Serial.println("Power button long hold");
+            powerControlHsm.postEvent(PowerControlStateMachine::Event::POWER_OFF);
+            break;
+        default:
+            break;
+    }
+}
+
+void emergencyInChanged(bool current_state, bool previous_state) {
+    if (current_state) {
+        Serial.println("Emergency input activated");
+        //emergencyOut.on();
+        powerControlHsm.postEvent(PowerControlStateMachine::Event::EMER_ON);
+    } else {
+        Serial.println("Emergency input deactivated");
+        //emergencyOut.off();
+        powerControlHsm.postEvent(PowerControlStateMachine::Event::EMER_OFF);
+    }
+}
+
+void swReqUnlockChanged(bool current_state, bool previous_state) {
+    if (current_state) {
+        Serial.println("Request to unlock activated");
+        if(DigitalOutputPin* unlockMotorPin = getDigitalOutputPin(DigitalOutputRole::UNLOCK_MOTOR)) {
+            unlockMotorPin->on();
+        }
+    } else {
+        Serial.println("Request to unlock deactivated");
+        if(DigitalOutputPin* unlockMotorPin = getDigitalOutputPin(DigitalOutputRole::UNLOCK_MOTOR)) {
+            unlockMotorPin->off();
+        }
+    }
+}
+
+void swOffChanged(bool current_state, bool previous_state) {
+    if (current_state) {
+        Serial.println("SW_OFF activated");
+    } else {
+        Serial.println("SW_OFF deactivated");
+    }
+}
