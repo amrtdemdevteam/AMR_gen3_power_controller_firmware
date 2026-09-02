@@ -32,6 +32,7 @@ enum class DigitalOutputRole : uint8_t {
 	AUX_DEV_RELAY,
 	UNLOCK_MOTOR,
 	POWER_ON,
+	EMERGENCY_OUT,
 	COUNT
 };
 
