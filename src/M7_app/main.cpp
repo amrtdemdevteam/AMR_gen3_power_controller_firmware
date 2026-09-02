@@ -6,20 +6,29 @@
 #include "state_callback.hpp"
 #include "button_event_monitor.hpp"
 #include "led_controller.hpp"
+#include "state_event_timer.hpp"
+#include "state_event_timer_manager.hpp"
 
 PowerControlStateMachine powerControlHsm;
 auto app_timer = timer_create_default();
+StateEventTimerManager state_event_timer_manager;
+    
+constexpr unsigned long INIT_DONE_TIMEOUT_MS = 5000;
+StateEventTimer init_done_timer(
+    app_timer,
+    []() {
+        powerControlHsm.postEvent(PowerControlStateMachine::Event::INIT_DONE);
+    },
+    INIT_DONE_TIMEOUT_MS,
+    true
+);
 
-constexpr unsigned long INIT_DONE_DELAY_MS = 5000;
+
 
 
 void powerControlHsmRegisterCallbacks();
 
 void printHelp();
-
-bool onInitDoneTimer(void*);
-void scheduleInitDoneTimer();
-void cancelInitDoneTimer();
 
 std::unique_ptr<IPCStatusChecker> ipcStatusChecker;
 
@@ -39,9 +48,6 @@ LedController::Config power_led_config = {
 };
 LedController powerLedController(power_led_config);
 
-decltype(app_timer)::Task init_done_timer_task;
-bool is_init_done_timer_active = false;
-
 void setup() {
 
     powerLedController.begin();
@@ -53,7 +59,8 @@ void setup() {
 
     powerControlHsmRegisterCallbacks();
 
-    setInitStateTimerCallbacks(scheduleInitDoneTimer, cancelInitDoneTimer);
+    setStateEventTimerManager(&state_event_timer_manager);
+    registerStateEventTimer(StateEventTimerId::INIT_DONE, &init_done_timer);
 
     powerControlHsm.begin();
 
@@ -130,25 +137,6 @@ void loop() {
             case 'H': printHelp(); break;
             default: break;
         }
-    }
-}
-
-bool onInitDoneTimer(void*) {
-    is_init_done_timer_active = false;
-    powerControlHsm.postEvent(PowerControlStateMachine::Event::INIT_DONE);
-    return false;
-}
-
-void scheduleInitDoneTimer() {
-    cancelInitDoneTimer();
-    init_done_timer_task = app_timer.in(INIT_DONE_DELAY_MS, onInitDoneTimer);
-    is_init_done_timer_active = true;
-}
-
-void cancelInitDoneTimer() {
-    if (is_init_done_timer_active) {
-        app_timer.cancel(init_done_timer_task);
-        is_init_done_timer_active = false;
     }
 }
 
