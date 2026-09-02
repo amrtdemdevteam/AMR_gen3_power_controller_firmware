@@ -2,10 +2,13 @@
 #include <array>
 #include "state_callback.hpp"
 #include "led_controller.hpp"
+#include "digital_output_pin.hpp"
 #include "state_event_timer_manager.hpp"
 
 constexpr size_t LED_ROLE_COUNT = static_cast<size_t>(LedRole::COUNT);
 std::array<LedController*, LED_ROLE_COUNT> g_led_controllers = {nullptr};
+constexpr size_t DIGITAL_OUTPUT_ROLE_COUNT = static_cast<size_t>(DigitalOutputRole::COUNT);
+std::array<DigitalOutputPin*, DIGITAL_OUTPUT_ROLE_COUNT> g_digital_output_pins = {nullptr};
 StateEventTimerManager* g_state_event_timer_manager = nullptr;
 
 bool isValidLedRole(LedRole led_role) {
@@ -37,6 +40,31 @@ bool registerLedController(LedRole led_role, LedController* led_controller) {
 
 void clearLedControllers() {
     g_led_controllers.fill(nullptr);
+}
+
+bool isValidDigitalOutputRole(DigitalOutputRole output_role) {
+    return static_cast<size_t>(output_role) < DIGITAL_OUTPUT_ROLE_COUNT;
+}
+
+DigitalOutputPin* getDigitalOutputPin(DigitalOutputRole output_role) {
+    if (!isValidDigitalOutputRole(output_role)) {
+        return nullptr;
+    }
+
+    return g_digital_output_pins[static_cast<size_t>(output_role)];
+}
+
+bool registerDigitalOutputPin(DigitalOutputRole output_role, DigitalOutputPin* output_pin) {
+    if (!isValidDigitalOutputRole(output_role)) {
+        return false;
+    }
+
+    g_digital_output_pins[static_cast<size_t>(output_role)] = output_pin;
+    return true;
+}
+
+void clearDigitalOutputPins() {
+    g_digital_output_pins.fill(nullptr);
 }
 
 void setStateEventTimerManager(StateEventTimerManager* timer_manager) {
@@ -94,15 +122,34 @@ bool onEnterShutdown(const hsmcpp::VariantVector_t& params) {
     Serial.println("Entering SHUTDOWN");
     printVariantParams(params);
 
-    // Mock implementation for entering shutdown state
-    Serial.println("Shutdown IPC");
-    Serial.println("Shutdown motor driver");
-    Serial.println("Shutdown other peripherals");
-    Serial.println("Shutdown complete");
+    Serial.println("Disable Auxiliary Device Relay");
+    if(DigitalOutputPin* auxDevRelayPin = getDigitalOutputPin(DigitalOutputRole::AUX_DEV_RELAY)) {
+        auxDevRelayPin->off();
+    }
+
+    Serial.println("Disable Control Relay");
+    if(DigitalOutputPin* controlRelayPin = getDigitalOutputPin(DigitalOutputRole::CONTROL_RELAY)) {
+        controlRelayPin->off();
+    }
+
+        Serial.println("Disable Motor Driver");
+    if(DigitalOutputPin* motDrvRelayPin = getDigitalOutputPin(DigitalOutputRole::MOT_DRV_RELAY)) {
+        motDrvRelayPin->off();
+    }
+
+    Serial.println("Disable Battery Relay");
+    if(DigitalOutputPin* batteryRelayPin = getDigitalOutputPin(DigitalOutputRole::BATTERY_RELAY)) {
+        batteryRelayPin->off();
+    }
+
+    Serial.println("Powering off the controller");
+    if(DigitalOutputPin* powerOnPin = getDigitalOutputPin(DigitalOutputRole::POWER_ON)) {
+        powerOnPin->off();
+    }
 
     if (LedController* led = getLedController(LedRole::POWER)) {
         led->setStateOff();
-    } // TODO: Handle LedController null
+    }
 
     // Actually turn off final power gate here
     return true;
@@ -128,8 +175,30 @@ bool onEnterInit(const hsmcpp::VariantVector_t& params) {
         Serial.println("INIT_DONE timer started");
     }
 
-    Serial.println("Powering on");
-    Serial.println("Initializing subsystems");
+    Serial.println("Powering on the controller");
+    if(DigitalOutputPin* powerOnPin = getDigitalOutputPin(DigitalOutputRole::POWER_ON)) {
+        powerOnPin->on();
+    }
+
+    Serial.println("Enable Battery Relay");
+    if(DigitalOutputPin* batteryRelayPin = getDigitalOutputPin(DigitalOutputRole::BATTERY_RELAY)) {
+        batteryRelayPin->on();
+    }
+
+    Serial.println("Enable Motor Driver");
+    if(DigitalOutputPin* motDrvRelayPin = getDigitalOutputPin(DigitalOutputRole::MOT_DRV_RELAY)) {
+        motDrvRelayPin->on();
+    }
+
+    Serial.println("Enable Control Relay");
+    if(DigitalOutputPin* controlRelayPin = getDigitalOutputPin(DigitalOutputRole::CONTROL_RELAY)) {
+        controlRelayPin->on();
+    }
+    
+    Serial.println("Enable Auxiliary Device Relay");
+    if(DigitalOutputPin* auxDevRelayPin = getDigitalOutputPin(DigitalOutputRole::AUX_DEV_RELAY)) {
+        auxDevRelayPin->on();
+    }
 
 
     return true;
