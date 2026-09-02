@@ -8,6 +8,7 @@
 
 class StateEventTimer;
 class StateEventTimerManager;
+class DigitalOutputPin;
 
 enum class StateEventTimerId : uint8_t {
 	INIT_DONE = 0,
@@ -21,6 +22,17 @@ enum class LedRole : uint8_t {
 	MASTER,
 	RUN,
 	COUNT // Keep this as the last element to represent the number of LED roles
+};
+
+enum class DigitalOutputRole : uint8_t {
+	BATTERY_RELAY = 0,
+	CHARGER_RELAY,
+	MOT_DRV_RELAY,
+	CONTROL_RELAY,
+	AUX_DEV_RELAY,
+	UNLOCK_MOTOR,
+	POWER_ON,
+	COUNT
 };
 
 /**
@@ -37,6 +49,14 @@ bool getLedController(LedRole led_role, LedController** led_controller);
 bool isValidLedRole(LedRole led_role);
 
 void clearLedControllers();
+
+bool registerDigitalOutputPin(DigitalOutputRole output_role, DigitalOutputPin* output_pin);
+
+DigitalOutputPin* getDigitalOutputPin(DigitalOutputRole output_role);
+
+bool isValidDigitalOutputRole(DigitalOutputRole output_role);
+
+void clearDigitalOutputPins();
 
 void setStateEventTimerManager(StateEventTimerManager* timer_manager);
 
