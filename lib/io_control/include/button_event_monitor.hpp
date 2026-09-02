@@ -52,5 +52,7 @@ private:
     bool long_hold_reported_ = false;
     EventCallback event_callback_ = nullptr;
 
+    static ButtonEventMonitor* instance_;
+
     static constexpr unsigned long DEBOUNCE_MS = 30;
 };
