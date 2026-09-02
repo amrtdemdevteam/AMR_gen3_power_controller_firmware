@@ -2,10 +2,18 @@
 
 #include <cstdint>
 #include <string>
-#include <functional>
 #include <hsmcpp.hpp>
 
 #include "led_controller.hpp"
+
+class StateEventTimer;
+class StateEventTimerManager;
+
+enum class StateEventTimerId : uint8_t {
+	INIT_DONE = 0,
+	CHARGED_IDLE_TIMEOUT = 1,
+	COUNT
+};
 
 
 enum class LedRole : uint8_t {
@@ -30,8 +38,15 @@ bool isValidLedRole(LedRole led_role);
 
 void clearLedControllers();
 
-void setInitStateTimerCallbacks(std::function<void()> on_init_enter,
-								std::function<void()> on_init_exit);
+void setStateEventTimerManager(StateEventTimerManager* timer_manager);
+
+bool registerStateEventTimer(StateEventTimerId timer_id, StateEventTimer* timer);
+
+bool startStateEventTimer(StateEventTimerId timer_id);
+
+bool stopStateEventTimer(StateEventTimerId timer_id);
+
+StateEventTimer* getStateEventTimer(StateEventTimerId timer_id);
 
 void onStateChanged(const hsmcpp::VariantVector_t& params);
 

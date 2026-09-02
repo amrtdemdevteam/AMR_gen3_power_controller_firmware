@@ -2,11 +2,11 @@
 #include <array>
 #include "state_callback.hpp"
 #include "led_controller.hpp"
+#include "state_event_timer_manager.hpp"
 
 constexpr size_t LED_ROLE_COUNT = static_cast<size_t>(LedRole::COUNT);
 std::array<LedController*, LED_ROLE_COUNT> g_led_controllers = {nullptr};
-std::function<void()> g_on_init_enter_timer_cb = nullptr;
-std::function<void()> g_on_init_exit_timer_cb = nullptr;
+StateEventTimerManager* g_state_event_timer_manager = nullptr;
 
 bool isValidLedRole(LedRole led_role) {
     return static_cast<size_t>(led_role) < LED_ROLE_COUNT;
@@ -39,10 +39,40 @@ void clearLedControllers() {
     g_led_controllers.fill(nullptr);
 }
 
-void setInitStateTimerCallbacks(std::function<void()> on_init_enter,
-                                std::function<void()> on_init_exit) {
-    g_on_init_enter_timer_cb = on_init_enter;
-    g_on_init_exit_timer_cb = on_init_exit;
+void setStateEventTimerManager(StateEventTimerManager* timer_manager) {
+    g_state_event_timer_manager = timer_manager;
+}
+
+bool registerStateEventTimer(StateEventTimerId timer_id, StateEventTimer* timer) {
+    if (nullptr == g_state_event_timer_manager) {
+        return false;
+    }
+
+    return g_state_event_timer_manager->register_timer(static_cast<uint8_t>(timer_id), timer);
+}
+
+bool startStateEventTimer(StateEventTimerId timer_id) {
+    if (nullptr == g_state_event_timer_manager) {
+        return false;
+    }
+
+    return g_state_event_timer_manager->start_timer(static_cast<uint8_t>(timer_id));
+}
+
+bool stopStateEventTimer(StateEventTimerId timer_id) {
+    if (nullptr == g_state_event_timer_manager) {
+        return false;
+    }
+
+    return g_state_event_timer_manager->stop_timer(static_cast<uint8_t>(timer_id));
+}
+
+StateEventTimer* getStateEventTimer(StateEventTimerId timer_id) {
+    if (nullptr == g_state_event_timer_manager) {
+        return nullptr;
+    }
+
+    return g_state_event_timer_manager->get_timer(static_cast<uint8_t>(timer_id));
 }
 
 
@@ -94,8 +124,8 @@ bool onEnterInit(const hsmcpp::VariantVector_t& params) {
     Serial.println("Entering INIT");
     printVariantParams(params);
 
-    if (g_on_init_enter_timer_cb) {
-        g_on_init_enter_timer_cb();
+    if (startStateEventTimer(StateEventTimerId::INIT_DONE)) {
+        Serial.println("INIT_DONE timer started");
     }
 
     Serial.println("Powering on");
@@ -108,8 +138,8 @@ bool onEnterInit(const hsmcpp::VariantVector_t& params) {
 bool onExitInit() {
     Serial.println("Exiting INIT");
 
-    if (g_on_init_exit_timer_cb) {
-        g_on_init_exit_timer_cb();
+    if (stopStateEventTimer(StateEventTimerId::INIT_DONE)) {
+        Serial.println("INIT_DONE timer stopped");
     }
 
     Serial.println("Subsystem initialization completed");
