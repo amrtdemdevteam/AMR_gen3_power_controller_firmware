@@ -267,11 +267,19 @@ bool onExitServiceMode() {
 bool onEnterServiceEmer(const hsmcpp::VariantVector_t& params) {
     Serial.println("Entering SERVICE_EMER");
     printVariantParams(params);
+    if(DigitalOutputPin* emergencyOutPin = getDigitalOutputPin(DigitalOutputRole::EMERGENCY_OUT)) {
+        Serial.println("Enabling Emergency Output");
+        emergencyOutPin->on();
+    }
     return true;
 }
 
 bool onExitServiceEmer() {
     Serial.println("Exiting SERVICE_EMER");
+    if(DigitalOutputPin* emergencyOutPin = getDigitalOutputPin(DigitalOutputRole::EMERGENCY_OUT)) {
+        Serial.println("Disabling Emergency Output");
+        emergencyOutPin->off();
+    }
     return true;
 }
 
