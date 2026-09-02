@@ -1,9 +1,9 @@
 #include "../include/power_control_state_machine.hpp"
 
 // ---------- Public methods begin ---------- 
-bool PowerControlStateMachine::begin() {
+bool PowerControlStateMachine::begin(State initialState) {
 
-    hsm_ = std::make_shared<hsmcpp::HierarchicalStateMachine>(toStateID(State::SHUTDOWN));
+    hsm_ = std::make_shared<hsmcpp::HierarchicalStateMachine>(toStateID(initialState));
 
     
     registerStates();

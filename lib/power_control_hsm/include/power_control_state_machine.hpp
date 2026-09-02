@@ -64,16 +64,13 @@ class PowerControlStateMachine {
             CHARGED_IDLE_TIMEOUT
         };
 
-        enum  Timers {
-            INIT_TIMER = 100, // just timer ID
-            WAIT_IPC_TIMER = 101
-        };
 
         /**
          * @brief Initializes the power control state machine.
+         * @param initialState The initial state to start the state machine in.
          * @return true if initialization was successful, false otherwise.
          */
-        bool begin();
+        bool begin(State initialState=State::SHUTDOWN);
 
         /**
          * @brief Runs the power control state machine.
@@ -165,10 +162,6 @@ class PowerControlStateMachine {
 
         static hsmcpp::EventID_t toEventID(const Event event) {
             return static_cast<hsmcpp::EventID_t>(event);
-        }
-
-        static hsmcpp::TimerID_t toTimerID(const Timers timer) {
-            return static_cast<hsmcpp::TimerID_t>(timer);
         }
 
 
