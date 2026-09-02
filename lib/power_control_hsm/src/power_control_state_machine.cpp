@@ -112,8 +112,8 @@ void PowerControlStateMachine::registerTransitions() {
         hsm_->registerTransition(toStateID(State::CHARGED), toStateID(State::SERVICE_MODE), toEventID(Event::FMS_WAKE_UP));
         hsm_->registerTransition(toStateID(State::CHARGING), toStateID(State::CHARGED), toEventID(Event::BATTERY_HIGH));
         hsm_->registerTransition(toStateID(State::CHARGED), toStateID(State::SLEEP), toEventID(Event::CHARGED_IDLE_TIMEOUT));
-        hsm_->registerTransition(toStateID(State::SERVICE_MODE), toStateID(State::SERVICE_EMER), toEventID(Event::EMER_LOW));
-        hsm_->registerTransition(toStateID(State::SERVICE_EMER), toStateID(State::SERVICE_MODE), toEventID(Event::EMER_HIGH));
+        hsm_->registerTransition(toStateID(State::SERVICE_MODE), toStateID(State::SERVICE_EMER), toEventID(Event::EMER_OFF));
+        hsm_->registerTransition(toStateID(State::SERVICE_EMER), toStateID(State::SERVICE_MODE), toEventID(Event::EMER_ON));
 
         // Charging nested transitions
         hsm_->registerTransition(toStateID(State::GO_TO_CHARGER), toStateID(State::WAIT_CHARGER), toEventID(Event::ARRIVED_AT_CHARGER));
@@ -121,8 +121,8 @@ void PowerControlStateMachine::registerTransitions() {
         hsm_->registerTransition(toStateID(State::CHARGING_IN_PROGRESS), toStateID(State::WAIT_CHARGER), toEventID(Event::CHARGER_REMOVED));
 
         // Application transitions
-        hsm_->registerTransition(toStateID(State::OPERATION), toStateID(State::APP_EMER), toEventID(Event::EMER_LOW));
-        hsm_->registerTransition(toStateID(State::APP_EMER), toStateID(State::OPERATION), toEventID(Event::EMER_HIGH));
+        hsm_->registerTransition(toStateID(State::OPERATION), toStateID(State::APP_EMER), toEventID(Event::EMER_OFF));
+        hsm_->registerTransition(toStateID(State::APP_EMER), toStateID(State::OPERATION), toEventID(Event::EMER_ON));
         hsm_->registerTransition(toStateID(State::MANUAL), toStateID(State::AUTO), toEventID(Event::MODE_AUTO));
         hsm_->registerTransition(toStateID(State::AUTO), toStateID(State::MANUAL), toEventID(Event::MODE_MANUAL));
         hsm_->registerTransition(toStateID(State::AUTO), toStateID(State::STANDBY), toEventID(Event::FMS_NO_TASK));
