@@ -3,7 +3,8 @@
 #include "../include/led_controller.hpp"
 
 LedController::LedController(const Config& config)
-	: config_(config) {
+	: config_(config),
+	  led_output_pin_(DigitalOutputPin::Config{config.pin, config.active_low, false}) {
 }
 
 bool LedController::begin() {
@@ -14,7 +15,10 @@ bool LedController::begin() {
 		return false;
 	}
 
-	pinMode(config_.pin, OUTPUT);
+	if (!led_output_pin_.begin()) {
+		return false;
+	}
+
 	initialized_ = true;
 	last_toggle_ms_ = millis();
 	setStateOff();
@@ -34,8 +38,7 @@ void LedController::run() {
 	const unsigned long now = millis();
 	if ((now - last_toggle_ms_) >= half_period_ms_) {
 		last_toggle_ms_ = now;
-		ledOn_ = !ledOn_;
-		writeLed(ledOn_);
+		led_output_pin_.toggle();
 	}
 }
 
@@ -49,12 +52,10 @@ void LedController::setState(State state) {
 
 	switch (state_) {
 		case State::OFF:
-			ledOn_ = false;
 			writeLed(false);
 			break;
 
 		case State::SOLID:
-			ledOn_ = true;
 			writeLed(true);
 			break;
 
@@ -66,7 +67,6 @@ void LedController::setState(State state) {
 			}
 			half_period_ms_ = half_period_ms;
 			last_toggle_ms_ = millis();
-			ledOn_ = true;
 			writeLed(true);
 			break;
 		}
@@ -79,7 +79,6 @@ void LedController::setState(State state) {
 			}
 			half_period_ms_ = half_period_ms;
 			last_toggle_ms_ = millis();
-			ledOn_ = true;
 			writeLed(true);
 			break;
 		}
@@ -107,8 +106,7 @@ LedController::State LedController::state() const {
 }
 
 void LedController::writeLed(bool on) {
-	const bool pinHigh = config_.active_low ? !on : on;
-	digitalWrite(config_.pin, pinHigh ? HIGH : LOW);
+	led_output_pin_.set(on);
 }
 
 bool LedController::computeHalfPeriodMs(float hz, unsigned long& outHalfPeriodMs) const {

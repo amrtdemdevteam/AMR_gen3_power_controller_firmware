@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 
+#include "digital_output_pin.hpp"
+
 class LedController {
 public:
     enum class State {
@@ -37,9 +39,9 @@ public:
 
 private:
     Config config_;
+    DigitalOutputPin led_output_pin_;
     State state_ = State::OFF;
     bool initialized_ = false;
-    bool ledOn_ = false;
 
     unsigned long last_toggle_ms_ = 0;
     unsigned long half_period_ms_ = 500;
