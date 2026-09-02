@@ -8,11 +8,38 @@
 #include "led_controller.hpp"
 #include "state_event_timer.hpp"
 #include "state_event_timer_manager.hpp"
+#include "electrical_measurement.hpp"
+#include "digital_output_pin.hpp"
+
+//Output pins
+#define PIN_BATTERY_RELAY         9
+#define PIN_CHARGER_RELAY         10
+#define PIN_MOT_DRV_RELAY         11
+#define PIN_CONTROL_RELAY         12 // Control ตัวไหน?
+#define PIN_AUX_DEV_RELAY         13
+#define PIN_UNLOCK_MOTOR          49 // ใช่ brake release มั๊ย
+#define PIN_POWER_ON              51 // Power on signal for this controller
+
+
+#define PIN_SERIAL_DR             33 // 
+#define PIN_LED_BUTTON1           35 //What is this button?
+#define PIN_LED_BUTTON2           37 //What is this button?
+
+
+#define PIN_EMERGENCY_OUT         47
+
+
+
+//Input pins
+#define PIN_SW_OFF                41
+#define PIN_SW_REQ_UNLOCK         31
+#define PIN_EMERGENCY_IN          45
 
 PowerControlStateMachine powerControlHsm;
 auto app_timer = timer_create_default();
 StateEventTimerManager state_event_timer_manager;
-    
+
+// Post event INIT_DONE after a timeout
 constexpr unsigned long INIT_DONE_TIMEOUT_MS = 5000;
 StateEventTimer init_done_timer(
     app_timer,
@@ -24,14 +51,37 @@ StateEventTimer init_done_timer(
 );
 
 
+ElectricalMeasurement electricalMeasurement;
+constexpr unsigned long ELECTRICAL_MEASUREMENT_SAMPLE_INTERVAL_MS = 1000;
+StateEventTimer electrical_measurement_sample_timer(
+    app_timer,
+    []() {
+        electricalMeasurement.sampleAll();
+        // เก็บค่าวัดเอาไว้ในตัวแปรแล้วค่อยส่งเมื่อได้รับ request
+    },
+    ELECTRICAL_MEASUREMENT_SAMPLE_INTERVAL_MS,
+    false
+);
 
 
 void powerControlHsmRegisterCallbacks();
 
 void printHelp();
 
+void initDigitalOutputPins();
+
+//Define output control pins
+DigitalOutputPin batteryRelay(PIN_BATTERY_RELAY, false, false);
+DigitalOutputPin chargerRelay(PIN_CHARGER_RELAY, false, false);
+DigitalOutputPin motDrvRelay(PIN_MOT_DRV_RELAY, false, false);
+DigitalOutputPin controlRelay(PIN_CONTROL_RELAY, false, false);
+DigitalOutputPin auxDevRelay(PIN_AUX_DEV_RELAY, false, false);
+DigitalOutputPin unlockMotor(PIN_UNLOCK_MOTOR, false, false);
+DigitalOutputPin powerOn(PIN_POWER_ON, false, false);
+
 std::unique_ptr<IPCStatusChecker> ipcStatusChecker;
 
+// Just for demo
 ButtonEventMonitor::Config power_button_config = {
     .pin = 12,
     .active_low = false,
@@ -40,29 +90,41 @@ ButtonEventMonitor::Config power_button_config = {
 };
 ButtonEventMonitor powerButtonMonitor(power_button_config);
 
+// Just for demo
 LedController::Config power_led_config = {
     .pin = 13,
     .active_low = false,
-    .blink_slow_hz = 1.0f,
+    .blink_slow_hz = 2.0f,
     .blink_fast_hz = 5.0f
 };
 LedController powerLedController(power_led_config);
 
+
+
+
 void setup() {
+    Serial.begin(115200);
+    initDigitalOutputPins();
 
     powerLedController.begin();
 
-    //Register led controller to be used in the state callback functions
+    electricalMeasurement.begin();
+    electrical_measurement_sample_timer.start();
+
+    //Register these components to be used in state callback functions
     registerLedController(LedRole::POWER, &powerLedController);
-
-    Serial.begin(115200);
-
+    registerDigitalOutputPin(DigitalOutputRole::BATTERY_RELAY, &batteryRelay);
+    //registerDigitalOutputPin(DigitalOutputRole::CHARGER_RELAY, &chargerRelay);
+    registerDigitalOutputPin(DigitalOutputRole::MOT_DRV_RELAY, &motDrvRelay);
+    registerDigitalOutputPin(DigitalOutputRole::CONTROL_RELAY, &controlRelay);
+    registerDigitalOutputPin(DigitalOutputRole::AUX_DEV_RELAY, &auxDevRelay);
+    registerDigitalOutputPin(DigitalOutputRole::UNLOCK_MOTOR, &unlockMotor);
+    registerDigitalOutputPin(DigitalOutputRole::POWER_ON, &powerOn);
     powerControlHsmRegisterCallbacks();
-
     setStateEventTimerManager(&state_event_timer_manager);
     registerStateEventTimer(StateEventTimerId::INIT_DONE, &init_done_timer);
 
-    powerControlHsm.begin();
+    powerControlHsm.begin(PowerControlStateMachine::State::INIT); // Start with the INIT state just for testing หลังจากอ่านค่า power button ได้ค่อยเริ่มจาก SHUTDOWN
 
     ipcStatusChecker.reset(new IPCStatusChecker());
 
@@ -70,6 +132,16 @@ void setup() {
         Serial.println("Failed to initialize power button monitor");
     }
 
+}
+
+void initDigitalOutputPins() {
+    batteryRelay.begin();
+    chargerRelay.begin();
+    motDrvRelay.begin();
+    controlRelay.begin();
+    auxDevRelay.begin();
+    unlockMotor.begin();
+    powerOn.begin();
 }
 
 void loop() {
