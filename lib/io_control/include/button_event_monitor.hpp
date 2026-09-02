@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 
+#include "digital_input_pin.hpp"
+
 class ButtonEventMonitor {
 public:
     enum class Event {
@@ -19,15 +21,25 @@ public:
         unsigned long long_hold_ms = 5000;
     };
 
+    using EventCallback = void (*)(Event event);
+
     explicit ButtonEventMonitor(const Config& config);
 
     bool begin();
     void setDurations(unsigned long short_hold_ms, unsigned long long_hold_ms);
     bool isPressed() const;
-    bool pollEvent(Event& event);
+    void setEventCallback(EventCallback callback);
+    void update();
 
 private:
+    static void onInputChanged(bool current_state, bool previous_state);
+
+    void handleInputChanged(bool current_state);
+    void emitEvent(Event event);
+    void processHoldEvents(unsigned long now);
+
     Config config_;
+    DigitalInputPin input_pin_;
 
     bool raw_pressed_ = false;
     bool stable_pressed_ = false;
@@ -38,11 +50,7 @@ private:
 
     bool short_hold_reported_ = false;
     bool long_hold_reported_ = false;
-
-    Event pending_event_ = Event::NONE;
+    EventCallback event_callback_ = nullptr;
 
     static constexpr unsigned long DEBOUNCE_MS = 30;
-
-    bool readPressed() const;
-    void queueEvent(Event event);
 };
