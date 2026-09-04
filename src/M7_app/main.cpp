@@ -1,6 +1,8 @@
 #include <Arduino.h>
+#include <cstdio>
 #include <memory>
 #include <arduino-timer.h>
+#include "RPC.h"
 #include "power_control_state_machine.hpp"
 #include "ipc_status_checker.hpp"
 #include "state_callback.hpp"
@@ -11,6 +13,7 @@
 #include "electrical_measurement.hpp"
 #include "digital_output_pin.hpp"
 #include "digital_input_pin.hpp"
+#include <ArduinoJson.h>
 
 //Output pins
 #define PIN_BATTERY_RELAY         9
@@ -68,6 +71,10 @@ StateEventTimer electrical_measurement_sample_timer(
     ELECTRICAL_MEASUREMENT_SAMPLE_INTERVAL_MS,
     false
 );
+
+std::string getElectricalMeasurementString(uint8_t channel);
+
+
 void printElectricalData();
 
 
@@ -125,9 +132,18 @@ LedController::Config power_led_config = {
 LedController powerLedController(power_led_config);
 
 
+/*int add(int a, int b) {
+    return a + b;
+}*/
+
+
+
 
 void setup() {
     Serial.begin(115200);
+    RPC.begin();
+    //RPC.bind("add", add);
+    RPC.bind("getElectricalMeasurement", getElectricalMeasurementString);
     initDigitalOutputPins();
     initDigitalInputPins();
 
@@ -236,6 +252,12 @@ void loop() {
             default: break;
         }
     }
+
+    while(RPC.available()) {
+        // To  see what happen inside M4
+        String rpc_msg =RPC.readStringUntil('\n');
+        Serial.println(rpc_msg);
+    }
 }
 
 void powerControlHsmRegisterCallbacks() {
@@ -338,6 +360,43 @@ void swOffChanged(bool current_state, bool previous_state) {
     } else {
         Serial.println("SW_OFF deactivated");
     }
+}
+
+std::string getElectricalMeasurementString(uint8_t channel) {
+    JsonDocument document;
+
+    ElectricalMeasurement::Channel::Value channel_value;
+    if (!ElectricalMeasurement::Channel::FromUint8(channel, channel_value)) {
+        document["error"] = "invalid_channel";
+        document["channel"] = channel;
+
+        std::string result;
+        serializeJson(document, result);
+        Serial.println(result.c_str());
+        return result;
+    }
+
+    auto channel_data = electricalMeasurement.readChannelData(channel_value);
+    if (channel_data == nullptr) {
+        document["error"] = "channel_data_unavailable";
+        document["channel"] = channel;
+
+        std::string result;
+        serializeJson(document, result);
+        Serial.println(result.c_str());
+        return result;
+    }
+
+
+    document["name"] = ElectricalMeasurement::Channel::ToString(channel_data->channel);
+  
+    document["value"] = channel_data->physical;
+    document["unit"] = ElectricalMeasurement::Unit::ToString(channel_data->unit);
+
+    std::string result;
+    serializeJson(document, result);
+    Serial.println(result.c_str());
+    return result;
 }
 
 void printElectricalData(){
