@@ -4,14 +4,18 @@
 
 class DigitalOutputPin {
 public:
+	enum class OutputMode : uint8_t {
+		ACTIVE_LOW = 0,
+		ACTIVE_HIGH
+		};
     struct Config {
         uint8_t pin = 0;
-        bool active_low = false;     // true = ON จะเขียน LOW
+        OutputMode output_mode = OutputMode::ACTIVE_HIGH;
         bool initial_on = false;     // สถานะเริ่มต้นหลัง begin()
     };
 
     explicit DigitalOutputPin(const Config& config);
-    DigitalOutputPin(uint8_t pin, bool active_low = false, bool initial_on = false);
+    DigitalOutputPin(uint8_t pin, OutputMode output_mode = OutputMode::ACTIVE_HIGH, bool initial_on = false);
 
     bool begin();
 

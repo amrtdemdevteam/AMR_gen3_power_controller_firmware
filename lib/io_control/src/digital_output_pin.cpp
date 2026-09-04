@@ -6,8 +6,8 @@ DigitalOutputPin::DigitalOutputPin(const Config& config)
 	: config_(config), state_on_(config.initial_on) {
 }
 
-DigitalOutputPin::DigitalOutputPin(uint8_t pin, bool active_low, bool initial_on)
-	: config_{pin, active_low, initial_on}, state_on_(initial_on) {
+DigitalOutputPin::DigitalOutputPin(uint8_t pin, OutputMode output_mode, bool initial_on)
+	: config_{pin, output_mode, initial_on}, state_on_(initial_on) {
 }
 
 
@@ -59,6 +59,6 @@ uint8_t DigitalOutputPin::pin() const {
 }
 
 void DigitalOutputPin::writeHardware(bool on) {
-	const bool pin_high = config_.active_low ? !on : on;
+	const bool pin_high = config_.output_mode == OutputMode::ACTIVE_LOW ? !on : on;
 	digitalWrite(config_.pin, pin_high ? HIGH : LOW);
 }
