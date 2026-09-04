@@ -1,7 +1,7 @@
 #include "../include/power_control_state_machine.hpp"
 
 // ---------- Public methods begin ---------- 
-bool PowerControlStateMachine::begin(State initialState) {
+bool PowerControlStateMachine::begin(State::Value initialState) {
 
     hsm_ = std::make_shared<hsmcpp::HierarchicalStateMachine>(toStateID(initialState));
 
@@ -33,13 +33,13 @@ void PowerControlStateMachine::run() {
     }
 }
 
-void PowerControlStateMachine::postEvent(Event event) {
+void PowerControlStateMachine::postEvent(Event::Value event) {
     if (hsm_) {
         hsm_->transition(toEventID(event));
     }
 }
 
-void PowerControlStateMachine::setStateCallbacks(State                  state,
+void PowerControlStateMachine::setStateCallbacks(State::Value           state,
                                                   StateChangedCallback_t onChanged,
                                                   StateEnterCallback_t   onEnter,
                                                   StateExitCallback_t    onExit) {
@@ -58,7 +58,7 @@ void PowerControlStateMachine::registerStates() {
     // State enum values are contiguous (SHUTDOWN=1 ... AUTO=18),
     // so iterate the range directly — no separate list needed.
     for (auto id = toStateID(State::SHUTDOWN); id <= toStateID(State::AUTO); ++id) {
-        const State state = static_cast<State>(id);
+        const State::Value state = static_cast<State::Value>(id);
         const auto it = stateCallbackMap_.find(state);
         if (it != stateCallbackMap_.end()) {
             hsm_->registerState(id, it->second.onChanged, it->second.onEnter, it->second.onExit);
@@ -74,13 +74,13 @@ void PowerControlStateMachine::registerStateActions() {
 
 void PowerControlStateMachine::registerSubstates() {
         // Root composites
-    hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::INIT));
+        hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::INIT));
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::SLEEP));
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::CHARGED));
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::SERVICE_MODE));
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::SERVICE_EMER));
         hsm_->registerSubstate(toStateID(State::SERVICE_LAYER), toStateID(State::CHARGING));
-    hsm_->registerSubstateEntryPoint(toStateID(State::SERVICE_LAYER), toStateID(State::INIT));
+        hsm_->registerSubstateEntryPoint(toStateID(State::SERVICE_LAYER), toStateID(State::INIT));
 
         hsm_->registerSubstate(toStateID(State::CHARGING), toStateID(State::GO_TO_CHARGER));
         hsm_->registerSubstate(toStateID(State::CHARGING), toStateID(State::WAIT_CHARGER));
@@ -112,8 +112,8 @@ void PowerControlStateMachine::registerTransitions() {
         hsm_->registerTransition(toStateID(State::CHARGED), toStateID(State::SERVICE_MODE), toEventID(Event::FMS_WAKE_UP));
         hsm_->registerTransition(toStateID(State::CHARGING), toStateID(State::CHARGED), toEventID(Event::BATTERY_HIGH));
         hsm_->registerTransition(toStateID(State::CHARGED), toStateID(State::SLEEP), toEventID(Event::CHARGED_IDLE_TIMEOUT));
-        hsm_->registerTransition(toStateID(State::SERVICE_MODE), toStateID(State::SERVICE_EMER), toEventID(Event::EMER_OFF));
-        hsm_->registerTransition(toStateID(State::SERVICE_EMER), toStateID(State::SERVICE_MODE), toEventID(Event::EMER_ON));
+        hsm_->registerTransition(toStateID(State::SERVICE_MODE), toStateID(State::SERVICE_EMER), toEventID(Event::EMER_ON));
+        hsm_->registerTransition(toStateID(State::SERVICE_EMER), toStateID(State::SERVICE_MODE), toEventID(Event::EMER_OFF));
 
         // Charging nested transitions
         hsm_->registerTransition(toStateID(State::GO_TO_CHARGER), toStateID(State::WAIT_CHARGER), toEventID(Event::ARRIVED_AT_CHARGER));
@@ -121,8 +121,8 @@ void PowerControlStateMachine::registerTransitions() {
         hsm_->registerTransition(toStateID(State::CHARGING_IN_PROGRESS), toStateID(State::WAIT_CHARGER), toEventID(Event::CHARGER_REMOVED));
 
         // Application transitions
-        hsm_->registerTransition(toStateID(State::OPERATION), toStateID(State::APP_EMER), toEventID(Event::EMER_OFF));
-        hsm_->registerTransition(toStateID(State::APP_EMER), toStateID(State::OPERATION), toEventID(Event::EMER_ON));
+        hsm_->registerTransition(toStateID(State::OPERATION), toStateID(State::APP_EMER), toEventID(Event::EMER_ON));
+        hsm_->registerTransition(toStateID(State::APP_EMER), toStateID(State::OPERATION), toEventID(Event::EMER_OFF));
         hsm_->registerTransition(toStateID(State::MANUAL), toStateID(State::AUTO), toEventID(Event::MODE_AUTO));
         hsm_->registerTransition(toStateID(State::AUTO), toStateID(State::MANUAL), toEventID(Event::MODE_MANUAL));
         hsm_->registerTransition(toStateID(State::AUTO), toStateID(State::STANDBY), toEventID(Event::FMS_NO_TASK));
@@ -134,9 +134,9 @@ void PowerControlStateMachine::registerFailureHandler() {
         if (transitionFailedCallback_) {
             std::string message = "Transition failed. Active states: ";
             for (const auto& state : activeStates) {
-                message += std::to_string(state) + " ";
+                message += State::ToString(state) + " ";
             }
-            message += "Event: " + std::to_string(event);
+            message += "Event: " + Event::ToString(event);
             transitionFailedCallback_(message);
         }
     });
