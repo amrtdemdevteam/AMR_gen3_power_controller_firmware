@@ -12,7 +12,8 @@ class DigitalOutputPin;
 
 enum class StateEventTimerId : uint8_t {
 	INIT_DONE = 0,
-	CHARGED_IDLE_TIMEOUT = 1,
+	CHARGED_IDLE_TIMEOUT,
+	AUTO_POWER_ON,
 	COUNT
 };
 
