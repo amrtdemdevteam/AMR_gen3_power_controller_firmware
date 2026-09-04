@@ -92,6 +92,19 @@ public:
 					return "UNKNOWN";
 			}
 		}
+
+		static bool FromUint8(const uint8_t raw_channel, Value& channel_value) {
+			if (raw_channel >= static_cast<uint8_t>(CHANNEL_COUNT)) {
+				return false;
+			}
+
+			channel_value = static_cast<Value>(raw_channel);
+			return true;
+		}
+
+		static uint8_t ToUint8(const Value channel) {
+			return static_cast<uint8_t>(channel);
+		}
 	};
 
 	struct ChannelData {
@@ -116,6 +129,21 @@ public:
 		initialized_ = true;
 	}
 
+	std::shared_ptr<ChannelData> readChannelData(Channel::Value channel) const {
+		const ChannelData* channel_data = findChannelData(channel);
+		if (channel_data == nullptr) {
+			return nullptr;
+		}
+		
+		const int raw_value = readRawChannel(channel);
+		ChannelData sampled_channel_data = *channel_data;
+		sampled_channel_data.raw = raw_value;
+		sampled_channel_data.physical = convertRawToPhysical(sampled_channel_data, raw_value);
+
+		return std::make_shared<ChannelData>(sampled_channel_data);
+		
+	}
+
     /**
      * @brief Sample all electrical measurement channels.
      * 
@@ -134,8 +162,7 @@ public:
 		for (auto& channel_data : channel_data_list_) {
 			const int raw_value = readRawChannel(channel_data.channel);
 			channel_data.raw = raw_value;
-			channel_data.physical = static_cast<float>(raw_value - channel_data.adc_offset) *
-							  channel_data.adc_gain;
+			channel_data.physical = convertRawToPhysical(channel_data, raw_value);
 		}
 	}
 
@@ -176,7 +203,7 @@ public:
 			return 0.0f;
 		}
 
-		return static_cast<float>(raw_value - channel_data->adc_offset) * channel_data->adc_gain;
+		return convertRawToPhysical(*channel_data, raw_value);
 	}
 
 
@@ -220,6 +247,10 @@ private:
 		}
 
 		return nullptr;
+	}
+
+	static float convertRawToPhysical(const ChannelData& channel_data, int raw_value) {
+		return static_cast<float>(raw_value - channel_data.adc_offset) * channel_data.adc_gain;
 	}
 
 	static const ChannelData& unknownChannelData() {
