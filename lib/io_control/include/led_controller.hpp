@@ -15,7 +15,7 @@ public:
 
     struct Config {
         uint8_t pin = 13;
-        bool active_low = false;
+        DigitalOutputPin::OutputMode output_mode = DigitalOutputPin::OutputMode::ACTIVE_HIGH;
         float blink_slow_hz = 1.0f;
         float blink_fast_hz = 4.0f;
     };

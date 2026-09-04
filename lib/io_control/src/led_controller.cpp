@@ -4,7 +4,7 @@
 
 LedController::LedController(const Config& config)
 	: config_(config),
-	  led_output_pin_(DigitalOutputPin::Config{config.pin, config.active_low, false}) {
+	  led_output_pin_(DigitalOutputPin::Config{config.pin, config.output_mode, false}) {
 }
 
 bool LedController::begin() {
