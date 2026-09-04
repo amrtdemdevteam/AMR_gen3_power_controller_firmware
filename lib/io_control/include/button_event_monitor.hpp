@@ -16,9 +16,10 @@ public:
 
     struct Config {
         uint8_t pin = 0; // Pin number for the button
-        bool active_low = false; // true if the button is active low, false if active high
+        DigitalInputPin::InputMode input_mode = DigitalInputPin::InputMode::ACTIVE_LOW;
         unsigned long short_hold_ms = 3000;
         unsigned long long_hold_ms = 5000;
+       
     };
 
     using EventCallback = void (*)(Event event);
