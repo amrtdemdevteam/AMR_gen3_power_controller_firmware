@@ -4,35 +4,45 @@
 #include <Arduino.h>
 
 class DigitalInputPin {
-public:
-	struct Config {
-		uint8_t pin = 0;
-		bool active_low = false;
-	};
 
-	using ChangeCallback = void (*)(bool current_state, bool previous_state);
 
-	explicit DigitalInputPin(const Config& config);
-	DigitalInputPin(uint8_t pin, bool active_low = false);
+	public:
+		enum class InputMode : uint8_t {
+		ACTIVE_LOW = 0,
+		ACTIVE_HIGH
+		};
+		struct Config {
+			uint8_t pin = 0;
+			InputMode input_mode = InputMode::ACTIVE_LOW;
+		};
 
-	bool begin();
+		using ChangeCallback = void (*)(bool current_state, bool previous_state);
 
-	// Read pin and trigger callback if value changed since the previous update.
-	bool update();
+		explicit DigitalInputPin(const Config& config);
+		DigitalInputPin(uint8_t pin, InputMode input_mode = InputMode::ACTIVE_LOW);
 
-	bool state() const;
+		bool begin();
 
-	uint8_t pin() const;
+		// Read pin and trigger callback if value changed since the previous update.
+		bool update();
 
-	void setChangeCallback(ChangeCallback callback);
+		bool state() const;
 
-private:
-	Config config_;
-	bool state_ = false;
-	bool initialized_ = false;
+		uint8_t pin() const;
 
-	ChangeCallback change_callback_ = nullptr;
-	void* callback_user_data_ = nullptr;
+		void setChangeCallback(ChangeCallback callback);
 
-	bool readHardwareState() const;
+	private:
+		Config config_;
+		bool state_ = false;
+		bool last_raw_state_ = false;
+		bool initialized_ = false;
+		unsigned long last_raw_change_time_ms_ = 0;
+
+		ChangeCallback change_callback_ = nullptr;
+		void* callback_user_data_ = nullptr;
+
+		static constexpr unsigned int DEBOUNCE_DELAY_MS = 30;
+
+		bool readHardwareState() const;
 };

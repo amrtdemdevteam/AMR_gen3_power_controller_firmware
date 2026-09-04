@@ -6,8 +6,8 @@ DigitalInputPin::DigitalInputPin(const Config& config)
 	: config_(config) {
 }
 
-DigitalInputPin::DigitalInputPin(uint8_t pin, bool active_low)
-	: config_{pin, active_low} {
+DigitalInputPin::DigitalInputPin(uint8_t pin, DigitalInputPin::InputMode input_mode)
+	: config_{pin, input_mode} {
 }
 
 bool DigitalInputPin::begin() {
@@ -15,7 +15,7 @@ bool DigitalInputPin::begin() {
 		return false;
 	}
 
-	pinMode(config_.pin, config_.active_low ? INPUT_PULLUP : INPUT);
+	pinMode(config_.pin, config_.input_mode == InputMode::ACTIVE_LOW ? INPUT_PULLUP : INPUT);
 	state_ = readHardwareState();
 	initialized_ = true;
 	return true;
@@ -55,5 +55,5 @@ void DigitalInputPin::setChangeCallback(ChangeCallback callback) {
 
 bool DigitalInputPin::readHardwareState() const {
 	const bool pin_is_high = (digitalRead(config_.pin) == HIGH);
-	return config_.active_low ? !pin_is_high : pin_is_high;
+	return config_.input_mode == InputMode::ACTIVE_LOW ? !pin_is_high : pin_is_high;
 }
