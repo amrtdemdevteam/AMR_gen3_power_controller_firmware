@@ -125,33 +125,42 @@ bool onEnterShutdown(const hsmcpp::VariantVector_t& params) {
     Serial.println("Disable Auxiliary Device Relay");
     if(DigitalOutputPin* auxDevRelayPin = getDigitalOutputPin(DigitalOutputRole::AUX_DEV_RELAY)) {
         auxDevRelayPin->off();
+        delay(100);
     }
 
     Serial.println("Disable Control Relay");
     if(DigitalOutputPin* controlRelayPin = getDigitalOutputPin(DigitalOutputRole::CONTROL_RELAY)) {
         controlRelayPin->off();
+
     }
 
         Serial.println("Disable Motor Driver");
     if(DigitalOutputPin* motDrvRelayPin = getDigitalOutputPin(DigitalOutputRole::MOT_DRV_RELAY)) {
         motDrvRelayPin->off();
+        delay(100);
     }
 
     Serial.println("Disable Battery Relay");
     if(DigitalOutputPin* batteryRelayPin = getDigitalOutputPin(DigitalOutputRole::BATTERY_RELAY)) {
         batteryRelayPin->off();
+        delay(100);
     }
 
     Serial.println("Powering off the controller");
     if(DigitalOutputPin* powerOnPin = getDigitalOutputPin(DigitalOutputRole::POWER_ON)) {
         powerOnPin->off();
+        delay(100);
     }
 
     if (LedController* led = getLedController(LedRole::POWER)) {
         led->setStateOff();
     }
 
-    // Actually turn off final power gate here
+    // Auto power on for testing
+    /*if (startStateEventTimer(StateEventTimerId::AUTO_POWER_ON)) {
+        Serial.println("AUTO_POWER_ON timer started");
+    }*/
+
     return true;
 }
 
@@ -171,35 +180,41 @@ bool onEnterInit(const hsmcpp::VariantVector_t& params) {
     Serial.println("Entering INIT");
     printVariantParams(params);
 
-    if (startStateEventTimer(StateEventTimerId::INIT_DONE)) {
-        Serial.println("INIT_DONE timer started");
-    }
+
 
     Serial.println("Powering on the controller");
     if(DigitalOutputPin* powerOnPin = getDigitalOutputPin(DigitalOutputRole::POWER_ON)) {
         powerOnPin->on();
+        delay(100);
     }
 
     Serial.println("Enable Battery Relay");
     if(DigitalOutputPin* batteryRelayPin = getDigitalOutputPin(DigitalOutputRole::BATTERY_RELAY)) {
         batteryRelayPin->on();
+        delay(100);
     }
 
     Serial.println("Enable Motor Driver");
     if(DigitalOutputPin* motDrvRelayPin = getDigitalOutputPin(DigitalOutputRole::MOT_DRV_RELAY)) {
         motDrvRelayPin->on();
+        delay(100);
     }
 
     Serial.println("Enable Control Relay");
     if(DigitalOutputPin* controlRelayPin = getDigitalOutputPin(DigitalOutputRole::CONTROL_RELAY)) {
         controlRelayPin->on();
+        delay(100);
     }
     
     Serial.println("Enable Auxiliary Device Relay");
     if(DigitalOutputPin* auxDevRelayPin = getDigitalOutputPin(DigitalOutputRole::AUX_DEV_RELAY)) {
         auxDevRelayPin->on();
+        delay(100);
     }
 
+    if (startStateEventTimer(StateEventTimerId::INIT_DONE)) {
+        Serial.println("INIT_DONE timer started");
+    }
 
     return true;
 }
