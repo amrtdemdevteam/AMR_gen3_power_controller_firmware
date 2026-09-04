@@ -3,7 +3,7 @@
 ButtonEventMonitor* ButtonEventMonitor::instance_ = nullptr;
 
 ButtonEventMonitor::ButtonEventMonitor(const Config& config)
-	: config_(config), input_pin_(config.pin, config.active_low) {
+	: config_(config), input_pin_(config.pin, config.input_mode) {
 }
 
 bool ButtonEventMonitor::begin() {
