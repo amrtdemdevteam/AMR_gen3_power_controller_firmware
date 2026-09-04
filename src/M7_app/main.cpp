@@ -45,18 +45,30 @@ StateEventTimer init_done_timer(
     true
 );
 
+// Auto power on timer
+constexpr unsigned long AUTO_POWER_ON_TIMEOUT_MS = 3000;
+StateEventTimer auto_power_on_timer(
+    app_timer,
+    []() {
+        powerControlHsm.postEvent(PowerControlStateMachine::Event::POWER_ON);
+    },
+    AUTO_POWER_ON_TIMEOUT_MS,
+    true
+);
+
 
 ElectricalMeasurement electricalMeasurement;
 constexpr unsigned long ELECTRICAL_MEASUREMENT_SAMPLE_INTERVAL_MS = 1000;
 StateEventTimer electrical_measurement_sample_timer(
     app_timer,
     []() {
-        electricalMeasurement.sampleAll();
+        //electricalMeasurement.sampleAll();
         // เก็บค่าวัดเอาไว้ในตัวแปรแล้วค่อยส่งเมื่อได้รับ request
     },
     ELECTRICAL_MEASUREMENT_SAMPLE_INTERVAL_MS,
     false
 );
+void printElectricalData();
 
 
 void powerControlHsmRegisterCallbacks();
@@ -70,41 +82,43 @@ void updateDigitalInputPins();
 
 
 //Define output control pins
-DigitalOutputPin batteryRelay(PIN_BATTERY_RELAY, false, false);
-DigitalOutputPin chargerRelay(PIN_CHARGER_RELAY, false, false);
-DigitalOutputPin motDrvRelay(PIN_MOT_DRV_RELAY, false, false);
-DigitalOutputPin controlRelay(PIN_CONTROL_RELAY, false, false);
-DigitalOutputPin auxDevRelay(PIN_AUX_DEV_RELAY, false, false);
-DigitalOutputPin unlockMotorOut(PIN_UNLOCK_MOTOR, false, false);
-DigitalOutputPin powerOn(PIN_POWER_ON, false, false);
-DigitalOutputPin emergencyOut(PIN_EMERGENCY_OUT, true, false);
+DigitalOutputPin batteryRelay(PIN_BATTERY_RELAY, DigitalOutputPin::OutputMode::ACTIVE_HIGH, false);
+DigitalOutputPin chargerRelay(PIN_CHARGER_RELAY, DigitalOutputPin::OutputMode::ACTIVE_HIGH, false);
+DigitalOutputPin motDrvRelay(PIN_MOT_DRV_RELAY, DigitalOutputPin::OutputMode::ACTIVE_HIGH, false);
+DigitalOutputPin controlRelay(PIN_CONTROL_RELAY, DigitalOutputPin::OutputMode::ACTIVE_HIGH, false);
+DigitalOutputPin auxDevRelay(PIN_AUX_DEV_RELAY, DigitalOutputPin::OutputMode::ACTIVE_HIGH, false);
+DigitalOutputPin unlockMotorOut(PIN_UNLOCK_MOTOR, DigitalOutputPin::OutputMode::ACTIVE_HIGH, false);
+DigitalOutputPin powerOn(PIN_POWER_ON, DigitalOutputPin::OutputMode::ACTIVE_HIGH, false);
+DigitalOutputPin emergencyOut(PIN_EMERGENCY_OUT, DigitalOutputPin::OutputMode::ACTIVE_LOW, false);
 
 //Define input pins
-DigitalInputPin swOff(PIN_SW_OFF, true); //active low
+DigitalInputPin swOff(PIN_SW_OFF, DigitalInputPin::InputMode::ACTIVE_LOW); //active low
 void swOffChanged(bool current_state, bool previous_state);
 
-DigitalInputPin swReqUnlock(PIN_SW_REQ_UNLOCK, true);//active low
+DigitalInputPin swReqUnlock(PIN_SW_REQ_UNLOCK, DigitalInputPin::InputMode::ACTIVE_LOW);//active low
 void swReqUnlockChanged(bool current_state, bool previous_state);
 
-DigitalInputPin emergencyIn(PIN_EMERGENCY_IN, true);//active low
+DigitalInputPin emergencyIn(PIN_EMERGENCY_IN, DigitalInputPin::InputMode::ACTIVE_LOW);//active low: true
 void emergencyInChanged(bool current_state, bool previous_state);
+void printEmerInState();
 
 std::unique_ptr<IPCStatusChecker> ipcStatusChecker;
 
 // Just for demo
 ButtonEventMonitor::Config power_button_config = {
-    .pin = 12,
-    .active_low = false,
+    .pin = 6, // เปลี่ยนกลับเป็น 6 เพื่อใช้ปุ่มทดสอบ
+    .input_mode = DigitalInputPin::InputMode::ACTIVE_HIGH,
     .short_hold_ms = 3000,
     .long_hold_ms = 5000
 };
 ButtonEventMonitor powerButton(power_button_config);
 void onPowerButtonEvent(ButtonEventMonitor::Event event);
 
+
 // Just for demo
 LedController::Config power_led_config = {
-    .pin = 13,
-    .active_low = false,
+    .pin = 5,
+    .output_mode = DigitalOutputPin::OutputMode::ACTIVE_HIGH,
     .blink_slow_hz = 2.0f,
     .blink_fast_hz = 5.0f
 };
@@ -135,12 +149,13 @@ void setup() {
     powerControlHsmRegisterCallbacks();
     setStateEventTimerManager(&state_event_timer_manager);
     registerStateEventTimer(StateEventTimerId::INIT_DONE, &init_done_timer);
+    registerStateEventTimer(StateEventTimerId::AUTO_POWER_ON, &auto_power_on_timer);
 
-    powerControlHsm.begin(PowerControlStateMachine::State::INIT); // Start with the INIT state just for testing หลังจากอ่านค่า power button ได้ค่อยเริ่มจาก SHUTDOWN
+    powerControlHsm.begin(); // Start with the INIT state just for testing หลังจากอ่านค่า power button ได้ค่อยเริ่มจาก SHUTDOWN
 
     ipcStatusChecker.reset(new IPCStatusChecker());
 
-    powerButton.setEventCallback(onPowerButtonEvent);
+    
 
 
 
@@ -157,9 +172,15 @@ void initDigitalOutputPins() {
 }
 
 void initDigitalInputPins() {
+
+    powerButton.setEventCallback(onPowerButtonEvent);
     powerButton.begin();
+
+    emergencyIn.setChangeCallback(emergencyInChanged);
     emergencyIn.begin();
+    swOff.setChangeCallback(swOffChanged);
     swOff.begin();
+    swReqUnlock.setChangeCallback(swReqUnlockChanged);
     swReqUnlock.begin();
 }
 
@@ -209,6 +230,8 @@ void loop() {
             case 'A': powerControlHsm.postEvent(PowerControlStateMachine::Event::MODE_AUTO); break;
             case 'n': powerControlHsm.postEvent(PowerControlStateMachine::Event::FMS_NO_TASK); break;
             case 't': powerControlHsm.postEvent(PowerControlStateMachine::Event::FMS_TASK_ASSIGNED); break;
+            case 'v': printElectricalData(); break;
+            case 'z': printEmerInState(); break;
             case 'H': printHelp(); break;
             default: break;
         }
@@ -256,6 +279,8 @@ void printHelp() {
     Serial.println("  A: MODE_AUTO");
     Serial.println("  n: FMS_NO_TASK");
     Serial.println("  t: FMS_TASK_ASSIGNED");
+    Serial.println("  v: PRINT_VOLTAGE");
+    Serial.println("  z: PRINT_EMER_IN_STATE");
     Serial.println("  H: help");
 }
 
@@ -313,4 +338,21 @@ void swOffChanged(bool current_state, bool previous_state) {
     } else {
         Serial.println("SW_OFF deactivated");
     }
+}
+
+void printElectricalData(){
+    auto channel_data_list = electricalMeasurement.readAll();
+    for (const auto& channel_data : *channel_data_list) {
+        Serial.print(ElectricalMeasurement::Channel::ToString(channel_data.channel).c_str());
+        Serial.print(" : ");
+        Serial.print(channel_data.physical);
+        Serial.print("  ");
+        Serial.print(ElectricalMeasurement::Unit::ToString(channel_data.unit).c_str());
+        Serial.println(".");
+    }
+}
+
+void printEmerInState() {
+    Serial.print("Emergency input state: ");
+    Serial.println(emergencyIn.state() ? "Activated" : "Deactivated");
 }
